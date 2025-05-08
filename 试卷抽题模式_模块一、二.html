@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>智能抽题系统</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f0f8ff;
+        }
+
+        .control-panel {
+            background: #ffffff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+
+        #resetBtn { background: #ff6b6b; color: white; }
+        #singleBtn { background: #4CAF50; color: white; }
+        #judgeBtn { background: #2196F3; color: white; }
+        #fillBtn { background: #9C27B0; color: white; }
+        #againBtn { background: #FF9800; color: white; }
+
+        .question-area {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+        }
+
+        .question {
+            margin: 15px 0;
+            padding: 15px;
+            border-left: 4px solid #2196F3;
+            background: #f8f9fa;
+        }
+
+        input[type="radio"], input[type="checkbox"] {
+            margin-right: 10px;
+        }
+
+        .question-number {
+            color: #2196F3;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="control-panel">
+        <button id="resetBtn">重置题库</button>
+        <button id="singleBtn">单选题（8题）</button>
+        <button id="judgeBtn">判断题（6题）</button>
+        <button id="fillBtn">填空题（8题）</button>
+        <button id="againBtn">再次抽题</button>
+    </div>
+    <div id="questions" class="question-area"></div>
+
+    <script>
+        // 题库数据结构
+        let questionBank = {
+            single: [],
+            judge: [],
+            fill: []
+        };
+
+        // 已抽取题目记录
+        let usedQuestions = {
+            single: new Set(),
+            judge: new Set(),
+            fill: new Set()
+        };
+
+        // 当前题目类型
+        let currentType = null;
+
+        // 初始化题库
+        function initBank() {
+            // 单选题
+            questionBank.single = [
+                {id: 1, question: "计算机网络的基本目的是什么？", options: ["A. 提高计算速度", "B. 资源共享和数据通信", "C. 降低硬件成本", "D. 增强数据安全性"], answer: "B"},
+		{id: 2, question: "计算机网络发展的第一阶段是？", options: ["A. 分组交换网络", "B. 面向终端的计算机网络", "C. 标准化网络体系结构", "D. 高速互联网"], answer: "B"},
+		{id: 3, question: "______决定了选择拓扑结构图的单一性还是多样性？", options: ["A. 网络的规模", "B. 地理位置的限制", "C. 资金的限制", "D. 计算机的布局"], answer: "B"},
+		{id: 4, question: "在OSI参考模型中，______是向用户提供可靠的端到端服务？", options: ["A. 网络层", "B. 应用层", "C. 传输层", "D. 数据链路层"], answer: "B"},
+		{id: 5, question: "在对交换机进行配置时，下列______表示进入特权模式？", options: ["A. Switch>", "B. Switch>enable", "C. Switch>vlan 10", "D. Switch>configure terminal"], answer: "B"},
+		{id: 6, question: "对一个c类网段进行子网划分，如果子网掩码是26位，那么每个子网能够容纳的最大主机数为？", options: ["A. 16", "B. 30", "C. 62", "D. 126"], answer: "B"},
+		{id: 7, question: "计算机网络与分布距离进行分类，不包括？", options: ["A. 局域网", "B. 城域网", "C. 广域网", "D. 互联网"], answer: "B"},
+		{id: 8, question: "在网间所有设备之间实现点对点连接，又被称为分布式结构的拓扑结构是？", options: ["A. 星型拓扑结构", "B. 总线型拓扑结构", "C. 网状拓扑结构", "D. 蜂窝状拓扑结构"], answer: "B"},
+		{id: 9, question: "以下子网中属于网络172.168.0.0的子网的是？", options: ["A. 173.168.192.1", "B. 172.0.0.0", "C. 172.168.2.224", "D. 172.16.2.0"], answer: "B"},
+		{id: 10, question: "标志着计算机网络诞生的是？", options: ["A. 以单台计算机为中心的联机终端系统", "B. 以多个主机通过通信线路互联起来协同工作的系统", "C. 具有统一的网络体系结构的系统", "D. 成熟高速互联的计算机网络"], answer: "B"},
+		{id: 11, question: "由网络中若干节点通过点到点的链路首尾相连，形成一个闭合的环构成的网络结构是？", options: ["A. 总线型结构", "B. 环形结构", "C. 星型结构", "D. 网状结构"], answer: "B"},
+		{id: 12, question: "根据结构划分的交换机是？", options: ["A. FDDI交换机", "B. 企业级交换机", "C. 模块化交换机", "D. 局域网交换机"], answer: "B"},
+		{id: 13, question: "在安装Windows server 2012网络连接组件时，需要手动安装的组件是？", options: ["A. Netbeui协议", "B. TCP/IP协议", "C. Microsoft网络客户端", "D. Microsoft网络的文件和打印机共享网络服务功能"], answer: "B"},
+		{id: 14, question: "在计算机进行数据传输时，将模拟信号用调制解调器转换成数字信号的方式称为？", options: ["A. 基带传输", "B. 宽带传输", "C. 调制", "D. 解调"], answer: "B"},
+		{id: 15, question: "为了保证全网的正确通道，internet为互联网的每个网络和每台主机都分配了唯一的地址，该地址由纯数字组成，并用小数点分隔，该地址为？", options: ["A. TCP地址", "B. IP地址", "C. 域名", "D. Www服务器地址"], answer: "B"},
+		{id: 16, question: "TCP/IP协议工作在？", options: ["A. 应用层和网络层", "B. 传输层和网络层", "C. 应用层和物理层", "D. 传输层和物理层"], answer: "B"},
+		{id: 17, question: "组建计算机局域网不需要的设备是？", options: ["A. 网卡", "B. 服务器", "C. 传输介质", "D. 调制解调器"], answer: "B"},
+		{id: 18, question: "局域网和广域网划分的依据是？", options: ["A. 网络拓扑结构", "B. 通信协议", "C. 分布距离", "D. 网络使用者"], answer: "B"},
+		{id: 19, question: "在工作站集中的环境下，最好选择的网络拓扑结构是？", options: ["A. 总线型结构", "B. 星型结构", "C. 环型结构", "D. 蜂窝状结构"], answer: "B"},
+		{id: 20, question: "在192.168.2.20/255.255.255.240的网络中，有效的IP地址范围是？", options: ["A. 192.168.2.1~192.168.2.254", "B. 192.168.2.16~192.168.2.26", "C. 192.168.2.17~192.168.2.30", "D. 192.168.2.20~192.168.2.31"], answer: "B"},
+		{id: 21, question: "实现两个异种网络互联的设备是？", options: ["A. 交换机", "B. 防火墙", "C. 路由器", "D. 网卡"], answer: "B"},
+		{id: 22, question: "有几栋建筑物，周围还有其他电力电缆，若需将这几栋建筑物连接起来，构成骨干型园区网，则采用______比较合适？", options: ["A. 光纤", "B. 同轴电缆", "C. 非屏蔽双绞线", "D. 屏蔽双绞线"], answer: "B"},
+		{id: 23, question: "主机的IP地址为192.168.1.142/26时，对应的广播地址是？", options: ["A. 192.168.1.128", "B. 192.168.1.145", "C. 192.168.1.191", "D. 192.168.1.255"], answer: "B"},
+		{id: 24, question: "下列IEEE802标准中，IEEE802.7标准主要应用在？", options: ["A. 令牌环网络", "B. 城域网","C. 宽带局域网", "D. 无线局域网"], answer: "B"},
+		{id: 25, question: "下列网络设备中，不工作在osi参考模型第二层的是？", options: ["A. 交换机", "B. 集线器", "C. 网桥", "D. 网卡"], answer: "B"},
+		{id: 26, question: "某公司的网络IP地址为200.192.16.0，子网掩码为255.255.255.128。该网络可以容纳的主机数为？", options: ["A. 254", "B. 126", "C. 62", "D. 128"], answer: "B"},
+		{id: 27, question: "在网络中，IP地址198.168.23.255代表的是？", options: ["A. 主机地址", "B. 网络地址", "C. 组播地址", "D. 广播地址"], answer: "B"},
+		{id: 28, question: "以下网络传输介质，由远到近排列的是？", options: ["A. 双绞线、同轴电缆、光纤", "B. 同轴电缆、双绞线、光纤", "C. 光纤、同轴电缆、双绞线", "D. 光纤、双绞线、同轴电缆"], answer: "B"},
+		{id: 29, question: "在osi参考模型中，以下协议中工作在网络层的是？", options: ["A. FTP", "B. IP", "C. UDP", "D. TCP"], answer: "B"},
+		{id: 30, question: "下列IP地址不能直接访问互联网的是？", options: ["A. 11.115.201.6", "B. 173.156.4.10", "C. 172.16.1.3", "D. 211.20.194.53"], answer: "B"},
+                // 其他单选题...
+                {id: 31, question: "TCP/IP协议栈中，提供端到端可靠传输的协议是？", options: ["A. IP", "B. UDP", "C. TCP", "D. ARP"], answer: "C"}
+            ];
+
+            // 判断题
+            questionBank.judge = [
+                {id: 1, question: "计算机网络的基本目的是资源共享和数据通信。", answer: true},
+		{id: 2, question: "网络中，URL的格式为\\\\服务器名\\共享名。", answer: true},
+		{id: 3, question: "计算机在不需访问外网的情况下，可以不配置默认网关的IP地址。", answer: true},
+		{id: 4, question: "网卡是计算机网络之间的连接设备。", answer: true},
+		{id: 5, question: "在测试双绞线时，校线器对应信号灯亮绿灯，红灯表明线序排错或对应线没有接好。", answer: true},
+		{id: 6, question: "IPV4是32位的二进制编号，IPV6是64位的二进制编号。", answer: true},
+		{id: 7, question: "交叉线一头为568A，另一头为568B。", answer: true},
+		{id: 8, question: "不管你的计算机在任何网络，必须配置默认网关的IP地址。", answer: true},
+		{id: 9, question: "宽带同轴电缆的阻抗是93欧姆，常用在电视闭路系统中。", answer: true},
+		{id: 10, question: "交换机的普通口连交换机的普通口使用交叉线。", answer: true},
+		{id: 11, question: "计算机之间传输数据之前要建立连接，连接是通过三次握手进行初始化的。", answer: true},
+		{id: 12, question: "网卡的MAC地址可以通过不加任何参数的ipconfig命令查看。", answer: true},
+		{id: 13, question: "1000 base-T的传输介质，采用的接头是AUI。", answer: true},
+		{id: 14, question: "在局域网传输标准中，1000 base-Lx标准所使用的传输介质为长波长光线。", answer: true},
+		{id: 15, question: "在ISO/OSI参考模型中，传输层负责维护两个节点之间的传输链接，以确保点对点传输不中断。", answer: true},
+		{id: 16, question: "IP地址172.35.24.162是一个b类内部私有地址。", answer: true},
+		{id: 17, question: "需要一个专门的网络管理员，是服务器网络的一个重要特征。", answer: true},
+		{id: 18, question: "动态IP地址指的是计算机的IP地址可以随意变化。", answer: true},
+		{id: 19, question: "网状拓扑结构因其结构特点导致安装时的工作量很大。", answer: true},
+		{id: 20, question: "路由器的信息隐藏特性可以通过对数据进行加密保护网内资源不被轻易访问。", answer: true},
+		{id: 21, question: "计算机网络是计算机技术和通信技术相结合的产物。", answer: true},
+		{id: 22, question: "网络中的任意一个节点或一条传输介质出现故障，都不会导致整个网络的故障。", answer: true},
+		{id: 23, question: "在服务器或windows 10工作站上设置IP地址，必须以管理员的身份登录。", answer: true},
+		{id: 24, question: "计算机和计算机连接时需要使用交叉双绞线。", answer: true},
+                // 其他判断题...
+                {id: 25, question: "无盘工作站需要本地硬盘才能启动。", answer: false}
+            ];
+
+            // 填空题
+            questionBank.fill = [
+                {id: 1, question: "计算机网络的基本目的是______和______。", answer: ["资源共享", "数据通信"]},
+		{id: 2, question: "添加______成功后,共享的文件夹以一个硬盘的符号出现在网络位置上，就可以像使用本地磁盘一样使用该盘里的内容。", answer: ["资源共享", "数据通信"]},
+		{id: 3, question: "______是TCPIP协议通信传输中的数据单位。", answer: ["资源共享", "数据通信"]},
+		{id: 4, question: "在网络交换技术中，______方式是一种再发信方和收信方之间建立逻辑连接的通信方式。", answer: ["资源共享", "数据通信"]},
+		{id: 5, question: "要实现共享打印，在服务器上安装______并实现共享。", answer: ["资源共享", "数据通信"]},
+		{id: 6, question: "当两个主机的网络ID不同时，说明他们不在同一个网络中，不能直接通信，必须通过______进行转发。", answer: ["资源共享", "数据通信"]},
+		{id: 7, question: "IP地址中，网络号和主机号为全“1”(255.255.255.255) 属于______地址。", answer: ["资源共享", "数据通信"]},
+		{id: 8, question: "光纤内层的______是由十分纯净的玻璃或塑料制成的绞合线或纤维。", answer: ["资源共享", "数据通信"]},
+		{id: 9, question: "内置打印服务器实现网络打印是指打印机本身带有一个______(也称为内置打印服务器)，用户直接将网络线与打印机相连，实现网络打印。", answer: ["资源共享", "数据通信"]},
+		{id: 10, question: "目前世界上最完整，应用最为广泛的通信协议是______。", answer: ["资源共享", "数据通信"]},
+		{id: 11, question: "10Base-F标准的传输介质是______。", answer: ["资源共享", "数据通信"]},
+		{id: 12, question: "中继器工作在osi参考模型的______层。", answer: ["资源共享", "数据通信"]},
+		{id: 13, question: "______网络中的计算机既是服务器又是工作站。", answer: ["资源共享", "数据通信"]},
+		{id: 14, question: "在地势空旷，不适宜布线的情况下应选用______拓扑结构的网络。", answer: ["资源共享", "数据通信"]},
+		{id: 15, question: "Osi通信协议是由______组织于1983年颁布的。", answer: ["资源共享", "数据通信"]},
+		{id: 16, question: "路由器除具有网桥的全部功能外，还有选择______的功能。", answer: ["资源共享", "数据通信"]},
+		{id: 17, question: "在局域网的100Base-Tx传输标准中所规定的最高传输速是______（Mbit/s）。", answer: ["资源共享", "数据通信"]},
+		{id: 18, question: "根据连接的传输介质不同，网卡端口分为三种，其中______端口用来连接双绞线。", answer: ["资源共享", "数据通信"]},
+		{id: 19, question: "在TCP协议栈中，HTTP协议工作在______层。", answer: ["资源共享", "数据通信"]},
+		{id: 20, question: "网卡工作在osi参考模型的______层。", answer: ["资源共享", "数据通信"]},
+		{id: 21, question: "设备配置时，通常在用户模式中输入______命令便可进入特权模式。", answer: ["资源共享", "数据通信"]},
+		{id: 22, question: "计算机与计算机用双绞线连接,应做成______线。", answer: ["资源共享", "数据通信"]},
+		{id: 23, question: "______信号依赖于信号波形的连续变化。", answer: ["资源共享", "数据通信"]},
+		{id: 24, question: "在网络的基本拓扑结构中，被称为集中式网络的拓扑结构是______拓扑结构。", answer: ["资源共享", "数据通信"]},
+		{id: 25, question: "______是网络中计算机通信所必须遵守的一组规则和约定。", answer: ["资源共享", "数据通信"]},
+		{id: 26, question: "虚电路方式是指在通信双方之间建立______连接的一种通信方式。", answer: ["资源共享", "数据通信"]},
+		{id: 27, question: "光纤结构中的______是玻璃或塑料的涂层，具有防止光折射的作用。", answer: ["资源共享", "数据通信"]},
+		{id: 28, question: "______是数据链路层的协议数据单元。", answer: ["资源共享", "数据通信"]},
+		{id: 29, question: "______为网络中的其他工作站提供网络资源和网络服务，是网络的中心。", answer: ["资源共享", "数据通信"]},
+		{id: 30, question: "实现网络共享打印时，服务器将从工作站收取的打印作业存储在______中。", answer: ["资源共享", "数据通信"]},
+		{id: 31, question: "在同一个信道上的同一时刻，能够进行双向数据传送的通信方式是______。", answer: ["资源共享", "数据通信"]},
+		{id: 32, question: "如果一个c类网络要用掩码255.255.255.192划分子网，那么会有个______可用的子网。", answer: ["资源共享", "数据通信"]},
+		{id: 33, question: "IEEE 802标准中，______标准用于宽带局域网。", answer: ["资源共享", "数据通信"]},
+		{id: 34, question: "在网络拓扑结构中，节点是指______，链路是指通信线路。", answer: ["资源共享", "数据通信"]},
+		{id: 35, question: "打印服务器是监管______和打印机的设备。", answer: ["资源共享", "数据通信"]},
+		{id: 36, question: "网络号______的IP地址不能指派给主机，它被保留用于环路测试。", answer: ["资源共享", "数据通信"]},
+                // 其他填空题...
+                {id: 37, question: "TCP/IP协议栈中，负责端到端可靠传输的协议是______。", answer: ["TCP"]}
+            ];
+        }
+
+        // 抽取题目函数
+        function drawQuestions(type) {
+            currentType = type;
+            const count = type === 'judge' ? 6 : 8;
+            const available = questionBank[type].filter(q => !usedQuestions[type].has(q.id));
+            
+            if (available.length < count) {
+                alert("该题型题目已抽完！");
+                return [];
+            }
+
+            const selected = [];
+            while (selected.length < count) {
+                const randomIndex = Math.floor(Math.random() * available.length);
+                const selectedQuestion = available.splice(randomIndex, 1)[0];
+                selected.push(selectedQuestion);
+                usedQuestions[type].add(selectedQuestion.id);
+            }
+            return selected;
+        }
+
+        // 显示题目
+        function displayQuestions(questions) {
+            const container = document.getElementById('questions');
+            container.innerHTML = '';
+
+            questions.forEach((q, index) => {
+                const div = document.createElement('div');
+                div.className = 'question';
+                div.innerHTML = `
+                    <div class="question-number">${index+1}</div>
+                    <div class="question-content">
+                        <p>${q.question}</p>
+                        ${q.options ? q.options.map(opt => `
+                            <label><input type="radio" name="q${q.id}"> ${opt}</label><br>
+                        `).join('') : ''}
+                        ${typeof q.answer === 'boolean' ? `
+                            <label><input type="radio" name="q${q.id}"> 正确</label>
+                            <label><input type="radio" name="q${q.id}"> 错误</label>
+                        ` : ''}
+                        ${Array.isArray(q.answer) ? `
+                            <input type="text" placeholder="请输入答案" style="width: 300px;">
+                        ` : ''}
+                    </div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // 事件监听
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            usedQuestions = { single: new Set(), judge: new Set(), fill: new Set() };
+            document.getElementById('questions').innerHTML = '<p style="color: #666; text-align: center;">题库已重置</p>';
+        });
+
+        document.getElementById('singleBtn').addEventListener('click', () => {
+            const questions = drawQuestions('single');
+            displayQuestions(questions);
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+
+        document.getElementById('judgeBtn').addEventListener('click', () => {
+            const questions = drawQuestions('judge');
+            displayQuestions(questions);
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+
+        document.getElementById('fillBtn').addEventListener('click', () => {
+            const questions = drawQuestions('fill');
+            displayQuestions(questions);
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+
+        document.getElementById('againBtn').addEventListener('click', () => {
+            if (!currentType) return;
+            const questions = drawQuestions(currentType);
+            displayQuestions(questions);
+            window.scrollTo(0, document.body.scrollHeight);
+        });
+
+        // 初始化
+        initBank();
+    </script>
+</body>
+</html>
